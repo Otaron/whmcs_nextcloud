@@ -100,6 +100,24 @@ function ebsnextcloud_CreateAccount(array $params)
         $response = curl_exec($curl);
         curl_close($curl);
         
+        //Set Nextcloud quota
+        $curl = curl_init();
+        curl_setopt_array($curl, array(
+            CURLOPT_RETURNTRANSFER => 1,
+            CURLOPT_CUSTOMREQUEST => "PUT",
+            CURLOPT_URL => 'https://'.$params['serverusername'].':'.$params['serverpassword'].'@'.$params['serverhostname'].'/ocs/v1.php/cloud/users/'.$params['username'],
+            CURLOPT_POSTFIELDS => http_build_query(array(
+                key     =>  'quota',
+                value   =>  $params['configoption1']
+            )),
+            CURLOPT_HTTPHEADER => array(
+                "OCS-APIRequest: true"
+            ),
+            CURLOPT_CONNECTTIMEOUT => "10"
+        ));
+        $response = curl_exec($curl);
+        curl_close($curl);
+        
     } catch (Exception $e) {
         // Record the error in WHMCS's module log.
         logModuleCall(
