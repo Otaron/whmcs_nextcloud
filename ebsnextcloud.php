@@ -479,62 +479,16 @@ function ebsnextcloud_TestConnection(array $params)
 //    }
 //}
 
-function ebsnextcloud_AdminSingleSignOn(array $params)
-{
-    try {
-        // Call the service's single sign-on admin token retrieval function,
-        // using the values provided by WHMCS in `$params`.
-        $response = array();
-
-        return array(
-            'success' => true,
-            'redirectTo' => $response['redirectUrl'],
-        );
-    } catch (Exception $e) {
-        // Record the error in WHMCS's module log.
-        logModuleCall(
-            'provisioningmodule',
-            __FUNCTION__,
-            $params,
-            $e->getMessage(),
-            $e->getTraceAsString()
-        );
-
-        return array(
-            'success' => false,
-            'errorMsg' => $e->getMessage(),
-        );
-    }
-}
-
-//function ebsnextcloud_ClientArea(array $params)
+//function ebsnextcloud_AdminSingleSignOn(array $params)
 //{
-//    // Determine the requested action and set service call parameters based on
-//    // the action.
-//    $requestedAction = isset($_REQUEST['customAction']) ? $_REQUEST['customAction'] : '';
-//
-//    if ($requestedAction == 'manage') {
-//        $serviceAction = 'get_usage';
-//        $templateFile = 'templates/manage.tpl';
-//    } else {
-//        $serviceAction = 'get_stats';
-//        $templateFile = 'templates/overview.tpl';
-//    }
-//
 //    try {
-//        // Call the service's function based on the request action, using the
-//        // values provided by WHMCS in `$params`.
+//        // Call the service's single sign-on admin token retrieval function,
+//        // using the values provided by WHMCS in `$params`.
 //        $response = array();
 //
-//        $extraVariable1 = 'abc';
-//        $extraVariable2 = '123';
-//
 //        return array(
-//            'tabOverviewReplacementTemplate' => $templateFile,
-//            'templateVariables' => array(
-//                'extraVariable1' => $extraVariable1,
-//                'extraVariable2' => $extraVariable2,
-//            ),
+//            'success' => true,
+//            'redirectTo' => $response['redirectUrl'],
 //        );
 //    } catch (Exception $e) {
 //        // Record the error in WHMCS's module log.
@@ -546,12 +500,83 @@ function ebsnextcloud_AdminSingleSignOn(array $params)
 //            $e->getTraceAsString()
 //        );
 //
-//        // In an error condition, display an error page.
 //        return array(
-//            'tabOverviewReplacementTemplate' => 'error.tpl',
-//            'templateVariables' => array(
-//                'usefulErrorHelper' => $e->getMessage(),
-//            ),
+//            'success' => false,
+//            'errorMsg' => $e->getMessage(),
 //        );
 //    }
 //}
+
+function ebsnextcloud_ClientArea(array $params)
+{
+    // Determine the requested action and set service call parameters based on
+    // the action.
+    $requestedAction = isset($_REQUEST['customAction']) ? $_REQUEST['customAction'] : '';
+
+    
+    
+    switch ($requestedAction) {
+        case 'manage':
+            $serviceAction = 'get_usage';
+            $templateFile = 'templates/manage.tpl';
+            break;
+
+        default:
+            $serviceAction = 'get_stats';
+            $templateFile = 'templates/overview.tpl';
+            break;
+    }
+//
+    try {
+        
+        //Disable Nextcloud account
+        $curl = curl_init();
+        curl_setopt_array($curl, array(
+            CURLOPT_RETURNTRANSFER => 1,
+            CURLOPT_CUSTOMREQUEST => "GET",
+            CURLOPT_URL => 'https://'.$params['serverusername'].':'.$params['serverpassword'].'@'.$params['serverhostname'].'/ocs/v1.php/cloud/users/'.$params['username'],
+            CURLOPT_HTTPHEADER => array(
+                "OCS-APIRequest: true"
+            ),
+            CURLOPT_CONNECTTIMEOUT => "10"
+        ));
+        $response = curl_exec($curl);
+        curl_close($curl);
+        
+        $body = simplexml_load_string(substr($response, $header_size));
+            
+        return array(
+            'tabOverviewReplacementTemplate' => $templateFile,
+            'templateVariables' => array(
+                'used'  =>  convert_bytes_to_specified($body->data->quota->used,'G',2),
+                'quota' =>  convert_bytes_to_specified($body->data->quota->quota,'G',0)
+            ),
+        );
+    } catch (Exception $e) {
+        // Record the error in WHMCS's module log.
+        logModuleCall(
+            'provisioningmodule',
+            __FUNCTION__,
+            $params,
+            $e->getMessage(),
+            $e->getTraceAsString()
+        );
+
+        // In an error condition, display an error page.
+        return array(
+            'tabOverviewReplacementTemplate' => 'error.tpl',
+            'templateVariables' => array(
+                'usefulErrorHelper' => $e->getMessage(),
+            ),
+        );
+    }
+}
+
+function convert_bytes_to_specified($bytes, $to, $decimal_places = 1) {
+    $formulas = array(
+        'K' => number_format($bytes / 1024, $decimal_places),
+        'M' => number_format($bytes / 1048576, $decimal_places),
+        'G' => number_format($bytes / 1073741824, $decimal_places)
+    );
+    return isset($formulas[$to]) ? $formulas[$to] : 0;
+}
